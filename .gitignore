@@ -1,0 +1,42 @@
+# Environment & secrets
+.env
+.tokens/
+credentials.json
+token.json
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+dist/
+build/
+*.egg-info/
+.eggs/
+
+# Audit logs (may contain PII)
+audit.jsonl
+logs/
+
+# uv
+.uv/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# macOS
+.DS_Store
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+
+# Temp audio files
+/tmp/*.wav
+/tmp/*.m4a
+/tmp/*.mp3

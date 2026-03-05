@@ -1,0 +1,12 @@
+services:
+  agent-office:
+    build: .
+    env_file: .env
+    ports:
+      - "8080:8080"   # OAuth callback server
+    volumes:
+      - ./.tokens:/app/.tokens   # Persist encrypted tokens
+      - ./audit.jsonl:/app/audit.jsonl  # Persist audit log
+      # Mount whisper model if using local whisper.cpp
+      # - ~/.whisper:/root/.whisper:ro
+    restart: unless-stopped
