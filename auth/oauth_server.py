@@ -28,15 +28,16 @@ async def health():
 
 
 @app.get("/auth/status")
-async def auth_status():
-    authenticated = google_auth.is_authenticated()
-    return JSONResponse({"authenticated": authenticated})
+async def auth_status(user_id: str = "default"):
+    authenticated = google_auth.is_authenticated(user_id)
+    return JSONResponse({"authenticated": authenticated, "user_id": user_id})
 
 
 @app.get("/auth/google")
-async def start_google_auth():
+async def start_google_auth(user_id: str = "default", platform: str = ""):
     """Redirect user to Google OAuth consent screen."""
-    auth_url = google_auth.get_auth_url()
+    state = f"{user_id}:{platform}" if platform else user_id
+    auth_url = google_auth.get_auth_url(state)
     return RedirectResponse(url=auth_url)
 
 
@@ -45,13 +46,20 @@ async def google_callback(request: Request):
     """Handle Google OAuth callback, exchange code for tokens."""
     code = request.query_params.get("code")
     error = request.query_params.get("error")
+    state = request.query_params.get("state", "default")
+
+    # Decode state: "user_id:platform" or just "user_id"
+    if ":" in state:
+        user_id, platform = state.split(":", 1)
+    else:
+        user_id, platform = state, ""
 
     if error:
         return HTMLResponse(
             _html_page(
                 "Authentication Failed",
                 f"<p style='color:red'>OAuth error: {error}</p>"
-                "<p><a href='/auth/google'>Try again</a></p>",
+                f"<p><a href='/auth/google?user_id={user_id}'>Try again</a></p>",
             ),
             status_code=400,
         )
@@ -63,39 +71,34 @@ async def google_callback(request: Request):
         )
 
     try:
-        google_auth.save_from_code(code)
+        google_auth.save_from_code(code, user_id)
     except Exception as exc:
         return HTMLResponse(
             _html_page(
                 "Authentication Failed",
                 f"<p style='color:red'>Token exchange failed: {exc}</p>"
-                "<p><a href='/auth/google'>Try again</a></p>",
+                f"<p><a href='/auth/google?user_id={user_id}'>Try again</a></p>",
             ),
             status_code=500,
         )
 
+    platform_msg = f" — gå tilbage til {platform.capitalize()}" if platform else ""
     return HTMLResponse(
         _html_page(
             "Authenticated ✅",
-            "<p>Google account connected successfully!</p>"
-            "<p>You can close this window and return to Slack.</p>",
+            f"<p>Google account connected successfully!</p>"
+            f"<p>Du kan nu bruge Agent Office{platform_msg}.</p>",
         )
     )
 
 
 @app.get("/")
 async def index():
-    authenticated = google_auth.is_authenticated()
-    status = "✅ Connected" if authenticated else "❌ Not connected"
-    action = (
-        "<p>Google account is connected. Ready to use!</p>"
-        if authenticated
-        else '<p><a href="/auth/google">Connect Google Account</a></p>'
-    )
     return HTMLResponse(
         _html_page(
             "Agent Office",
-            f"<h2>Google Account: {status}</h2>{action}",
+            "<p>Send a message to your bot to get started.</p>"
+            "<p>If prompted, click the auth link to connect your Google account.</p>",
         )
     )
 

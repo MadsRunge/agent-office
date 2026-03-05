@@ -1,14 +1,15 @@
 """
-Planner — converts a user message into a validated ActionPlan via Claude tool-use.
+Planner — converts a user message into a validated ActionPlan via OpenAI tool-use.
 
-Uses Claude's tool-use feature to guarantee structured JSON output.
+Uses OpenAI's function-calling feature to guarantee structured JSON output.
 The model is constrained to call `create_action_plan` exactly once.
 """
 from __future__ import annotations
 
+import json
 import os
 
-import anthropic
+import openai
 import structlog
 
 from agent.prompts import ACTION_PLAN_TOOL, get_planner_system_prompt
@@ -18,7 +19,7 @@ from core.security import sanitize_user_input, has_injection_pattern
 
 logger = structlog.get_logger()
 
-CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL", "claude-haiku-4-5-20251001")
+OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
 
 
 class PlannerError(RuntimeError):
@@ -27,7 +28,7 @@ class PlannerError(RuntimeError):
 
 class Planner:
     def __init__(self) -> None:
-        self._client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+        self._client = openai.OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
     async def plan(
         self,
@@ -51,26 +52,28 @@ class Planner:
         logger.info("planning", message_preview=clean[:80])
 
         try:
-            response = self._client.messages.create(
-                model=CLAUDE_MODEL,
-                max_tokens=2048,
-                system=get_planner_system_prompt(timezone),
+            response = self._client.chat.completions.create(
+                model=OPENAI_MODEL,
+                messages=[
+                    {"role": "system", "content": get_planner_system_prompt(timezone)},
+                    {"role": "user", "content": clean},
+                ],
                 tools=[ACTION_PLAN_TOOL],
-                tool_choice={"type": "any"},   # force tool use
-                messages=[{"role": "user", "content": clean}],
+                tool_choice={"type": "function", "function": {"name": "create_action_plan"}},
             )
-        except anthropic.APIError as exc:
-            raise PlannerError(f"Claude API error: {exc}") from exc
+        except openai.APIError as exc:
+            raise PlannerError(f"OpenAI API error: {exc}") from exc
 
         # Extract tool-use result
         tool_call = None
-        for block in response.content:
-            if block.type == "tool_use" and block.name == "create_action_plan":
-                tool_call = block.input
-                break
+        msg = response.choices[0].message
+        if msg.tool_calls:
+            tc = msg.tool_calls[0]
+            if tc.function.name == "create_action_plan":
+                tool_call = json.loads(tc.function.arguments)
 
         if not tool_call:
-            raise PlannerError("Claude did not return a valid action plan tool call")
+            raise PlannerError("OpenAI did not return a valid action plan tool call")
 
         plan = self._parse_plan(tool_call, dry_run=dry_run)
         logger.info(

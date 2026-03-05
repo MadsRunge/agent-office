@@ -32,7 +32,7 @@ from core.logging import audit_action
 from core.models import PendingConfirmation
 from core.security import sanitize_user_input
 from services.transcription.base import ALLOWED_AUDIO_MIME_TYPES
-from services.transcription.whisper_cpp import whisper_provider
+from services.transcription.openai_whisper import openai_whisper_provider as whisper_provider
 
 logger = structlog.get_logger()
 

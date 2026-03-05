@@ -7,6 +7,7 @@ from typing import Any
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 
+from core.context import current_user_id
 from tools.google_api.auth import google_auth
 
 FOLDER_MIME = "application/vnd.google-apps.folder"
@@ -14,14 +15,14 @@ GDOC_MIME = "application/vnd.google-apps.document"
 
 
 def _service():
-    creds = google_auth.get_credentials()
+    creds = google_auth.get_credentials(current_user_id.get())
     if not creds:
         raise RuntimeError("Google account not authenticated. Visit /auth/google")
     return build("drive", "v3", credentials=creds, cache_discovery=False)
 
 
 def _docs_service():
-    creds = google_auth.get_credentials()
+    creds = google_auth.get_credentials(current_user_id.get())
     if not creds:
         raise RuntimeError("Google account not authenticated. Visit /auth/google")
     return build("docs", "v1", credentials=creds, cache_discovery=False)

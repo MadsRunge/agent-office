@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import json
 import os
-from pathlib import Path
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -21,11 +20,13 @@ SCOPES = [
     "https://www.googleapis.com/auth/userinfo.email",
 ]
 
-TOKEN_KEY = "google_oauth_token"
+
+def _token_key(user_id: str) -> str:
+    return f"google_oauth_{user_id}"
 
 
 class GoogleAuthManager:
-    """Manages OAuth2 credentials for Google APIs."""
+    """Manages OAuth2 credentials for Google APIs — one token per user."""
 
     def __init__(self) -> None:
         self._client_id = os.environ["GOOGLE_CLIENT_ID"]
@@ -34,9 +35,9 @@ class GoogleAuthManager:
             "GOOGLE_REDIRECT_URI", "http://localhost:8080/auth/callback"
         )
 
-    def get_credentials(self) -> Credentials | None:
+    def get_credentials(self, user_id: str = "default") -> Credentials | None:
         """Load and refresh stored credentials. Returns None if not yet authorised."""
-        raw = token_store.load(TOKEN_KEY)
+        raw = token_store.load(_token_key(user_id))
         if not raw:
             return None
         data = json.loads(raw)
@@ -50,35 +51,36 @@ class GoogleAuthManager:
         )
         if creds.expired and creds.refresh_token:
             creds.refresh(Request())
-            self._save_credentials(creds)
+            self._save_credentials(creds, user_id)
         return creds
 
-    def save_from_code(self, code: str) -> Credentials:
+    def save_from_code(self, code: str, user_id: str = "default") -> Credentials:
         """Exchange an authorisation code for credentials and persist them."""
         flow = self._build_flow()
         flow.fetch_token(code=code)
         creds = flow.credentials
-        self._save_credentials(creds)
+        self._save_credentials(creds, user_id)
         return creds
 
-    def get_auth_url(self) -> str:
-        """Return the Google OAuth consent URL."""
+    def get_auth_url(self, user_id: str = "default") -> str:
+        """Return the Google OAuth consent URL with user_id encoded in state."""
         flow = self._build_flow()
         auth_url, _ = flow.authorization_url(
             access_type="offline",
             prompt="consent",
             include_granted_scopes="true",
+            state=user_id,
         )
         return auth_url
 
-    def is_authenticated(self) -> bool:
+    def is_authenticated(self, user_id: str = "default") -> bool:
         try:
-            creds = self.get_credentials()
+            creds = self.get_credentials(user_id)
             return creds is not None and creds.valid
         except Exception:
             return False
 
-    def _save_credentials(self, creds: Credentials) -> None:
+    def _save_credentials(self, creds: Credentials, user_id: str) -> None:
         data = {
             "token": creds.token,
             "refresh_token": creds.refresh_token,
@@ -87,7 +89,7 @@ class GoogleAuthManager:
             "client_secret": creds.client_secret,
             "scopes": list(creds.scopes or []),
         }
-        token_store.save(TOKEN_KEY, json.dumps(data))
+        token_store.save(_token_key(user_id), json.dumps(data))
 
     def _build_flow(self) -> Flow:
         client_config = {

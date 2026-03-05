@@ -5,11 +5,12 @@ from typing import Any
 
 from googleapiclient.discovery import build
 
+from core.context import current_user_id
 from tools.google_api.auth import google_auth
 
 
 def _service():
-    creds = google_auth.get_credentials()
+    creds = google_auth.get_credentials(current_user_id.get())
     if not creds:
         raise RuntimeError("Google account not authenticated. Visit /auth/google")
     return build("calendar", "v3", credentials=creds, cache_discovery=False)

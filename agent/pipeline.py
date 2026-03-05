@@ -20,6 +20,7 @@ import structlog
 from agent.executor import executor
 from agent.planner import Planner, PlannerError
 from core.confirmations import confirmation_store
+from core.context import current_user_id
 from core.logging import audit_action
 from core.models import ExecutionResult, PendingConfirmation
 from core.security import sanitize_user_input
@@ -49,11 +50,15 @@ async def run_pipeline(
 ) -> None:
     """Core pipeline: message → plan → (confirm?) → execute → reply."""
 
+    # ── Set user context ───────────────────────────────────────────────────────
+    current_user_id.set(user_id)
+
     # ── Auth check ────────────────────────────────────────────────────────────
-    if not google_auth.is_authenticated():
+    if not google_auth.is_authenticated(user_id):
+        base_url = os.environ.get("PUBLIC_URL", f"http://localhost:{OAUTH_PORT}")
         await reply_fn(
             f"⚠️ Google-konto ikke forbundet.\n"
-            f"Autentificer her: http://localhost:{OAUTH_PORT}/auth/google"
+            f"Autentificer her: {base_url}/auth/google?user_id={user_id}&platform={platform}"
         )
         return
 

@@ -9,7 +9,7 @@ from services.transcription.base import (
     MAX_AUDIO_SIZE_BYTES,
     TranscriptionError,
 )
-from services.transcription.whisper_cpp import whisper_provider
+from services.transcription.openai_whisper import openai_whisper_provider as whisper_provider
 
 logger = structlog.get_logger()
 

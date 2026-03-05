@@ -58,15 +58,17 @@ def get_planner_system_prompt(timezone: str = "Europe/Copenhagen") -> str:
     )
 
 
-# ── Tool schema for Claude tool-use ──────────────────────────────────────────
+# ── Tool schema for OpenAI function-calling ───────────────────────────────────
 
 ACTION_PLAN_TOOL = {
+    "type": "function",
+    "function": {
     "name": "create_action_plan",
     "description": (
         "Create a structured action plan from the user's request. "
         "Call this tool ONCE with the complete plan."
     ),
-    "input_schema": {
+    "parameters": {
         "type": "object",
         "properties": {
             "intent": {
@@ -138,6 +140,7 @@ ACTION_PLAN_TOOL = {
         },
         "required": ["intent", "requires_confirmation", "risk_level",
                      "user_message_summary", "actions"],
+    },
     },
 }
 
