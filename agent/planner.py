@@ -18,7 +18,7 @@ from core.security import sanitize_user_input, has_injection_pattern
 
 logger = structlog.get_logger()
 
-CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL", "claude-sonnet-4-6")
+CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL", "claude-haiku-4-5-20251001")
 
 
 class PlannerError(RuntimeError):
